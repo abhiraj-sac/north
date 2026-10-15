@@ -2,7 +2,8 @@ import { ArrowRight } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import AuthCard from "../components/AuthCard";
 import { AuthField, PasswordField } from "../components/AuthField";
-
+import { api } from "../lib/api";
+import axios from "axios";
 function validEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -38,21 +39,50 @@ export default function SignUp() {
         : undefined
     : undefined;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitted(true);
-    setNotice("");
-    if (
-      !fullName.trim() ||
-      !email.trim() ||
-      !validEmail(email) ||
-      password.length < 8 ||
-      confirmPassword !== password
-    ) {
-      return;
-    }
-    setNotice("Account creation is not connected yet. Nothing was sent or saved.");
+ 
+async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+  setSubmitted(true);
+  setNotice("");
+
+  if (
+    !fullName.trim() ||
+    !email.trim() ||
+    !validEmail(email) ||
+    password.length < 8 ||
+    confirmPassword !== password
+  ) {
+    return;
   }
+
+  try {
+    const response = await api.post("/api/auth/signup", {
+      name: fullName.trim(),
+      email: email.trim(),
+      password,
+    });
+
+    setNotice("Account created successfully. You can now sign in.");
+    console.log("Signup response:", response.data);
+  } catch (error: unknown) {
+  if (axios.isAxiosError(error)) {
+    console.error("Signup error:", {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+
+    setNotice(
+      error.response?.data?.message ||
+      `Signup failed (${error.response?.status ?? "network error"}).`
+    );
+  } else {
+    console.error("Unexpected signup error:", error);
+    setNotice("An unexpected error occurred.");
+  }
+}
+}
+
 
   return (
     <AuthCard mode="signup">
