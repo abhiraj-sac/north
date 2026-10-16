@@ -2,6 +2,8 @@ import { ArrowRight } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import AuthCard from "../components/AuthCard";
 import { AuthField, PasswordField } from "../components/AuthField";
+import { api } from "../lib/api";
+import axios from "axios";
 
 function validEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -23,13 +25,70 @@ export default function SignIn() {
     : undefined;
   const passwordError = submitted && !password ? "Enter your password." : undefined;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitted(true);
-    setNotice("");
-    if (!email.trim() || !validEmail(email) || !password) return;
-    setNotice("Authentication is not connected yet. Nothing was sent or saved.");
+
+async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+  setSubmitted(true);
+  setNotice("");
+
+  if (!email.trim() || !validEmail(email) || !password) {
+    return;
   }
+
+  try {
+    const response = await api.post("/api/auth/signin", {
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    const { user, token } = response.data;
+
+    if (!token || !user) {
+      setNotice("Login response is missing user or token.");
+      return;
+    }
+
+    // Remove any previous session
+    localStorage.removeItem("north_token");
+    localStorage.removeItem("north_user");
+    sessionStorage.removeItem("north_token");
+    sessionStorage.removeItem("north_user");
+
+    // Save the new session
+    const storage = rememberSession
+      ? localStorage
+      : sessionStorage;
+
+    storage.setItem("north_token", token);
+    storage.setItem("north_user", JSON.stringify(user));
+
+    setNotice("Signed in successfully!");
+
+    console.log("Signin successful:", { user });
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error("Signin error:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+
+      if (error.response?.status === 401) {
+        setNotice("Invalid email or password.");
+      } else if (!error.response) {
+        setNotice("Unable to connect to the server. Please try again.");
+      } else {
+        setNotice(
+          error.response.data?.message || "Sign in failed. Please try again."
+        );
+      }
+    } else {
+      console.error("Unexpected signin error:", error);
+      setNotice("An unexpected error occurred.");
+    }
+  }
+}
+
 
   return (
     <AuthCard mode="signin">
