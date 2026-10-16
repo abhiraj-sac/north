@@ -1,6 +1,10 @@
 import { ArrowUpRight, Mountain } from "lucide-react";
 
-export default function Header() {
+interface HeaderProps {
+  onLogout?: () => void;
+}
+
+export default function Header({ onLogout }: HeaderProps) {
   return (
     <header className="topbar">
       <a className="brand" href="#" aria-label="NORTH home">
@@ -22,14 +26,22 @@ export default function Header() {
       </div>
 
       <nav className="header-nav" aria-label="Main navigation">
-        <a href="#public-dossiers">
-          Explore Public Dossiers <ArrowUpRight size={12} strokeWidth={1.8} />
-        </a>
-        <span className="nav-divider" />
-        <a href="#landing">Return to Landing</a>
-        <span className="avatar-placeholder" aria-label="Account" role="img">
-          N
-        </span>
+        {onLogout ? (
+          <button className="header-logout" type="button" onClick={onLogout}>
+            Sign out
+          </button>
+        ) : (
+          <>
+            <a href="#public-dossiers">
+              Explore Public Dossiers <ArrowUpRight size={12} strokeWidth={1.8} />
+            </a>
+            <span className="nav-divider" />
+            <a href="#landing">Return to Landing</a>
+            <span className="avatar-placeholder" aria-label="Account" role="img">
+              N
+            </span>
+          </>
+        )}
       </nav>
     </header>
   );

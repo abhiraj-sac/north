@@ -4,6 +4,8 @@ import AuthCard from "../components/AuthCard";
 import { AuthField, PasswordField } from "../components/AuthField";
 import { api } from "../lib/api";
 import axios from "axios";
+import { useAuth, type UserProfile } from "../auth/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 function validEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -15,6 +17,8 @@ export default function SignIn() {
   const [rememberSession, setRememberSession] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [notice, setNotice] = useState("");
+  const { establishSession } = useAuth();
+  const navigate = useNavigate();
 
   const emailError = submitted
     ? !email.trim()
@@ -26,69 +30,76 @@ export default function SignIn() {
   const passwordError = submitted && !password ? "Enter your password." : undefined;
 
 
-async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-  event.preventDefault();
-  setSubmitted(true);
-  setNotice("");
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitted(true);
+    setNotice("");
 
-  if (!email.trim() || !validEmail(email) || !password) {
-    return;
-  }
-
-  try {
-    const response = await api.post("/api/auth/signin", {
-      email: email.trim().toLowerCase(),
-      password,
-    });
-
-    const { user, token } = response.data;
-
-    if (!token || !user) {
-      setNotice("Login response is missing user or token.");
+    if (!email.trim() || !validEmail(email) || !password) {
       return;
     }
 
-    // Remove any previous session
-    localStorage.removeItem("north_token");
-    localStorage.removeItem("north_user");
-    sessionStorage.removeItem("north_token");
-    sessionStorage.removeItem("north_user");
+    let validatingProfile = false;
+    try {
+      const response = await api.post<{ user: UserProfile; token: string }>(
+        "/api/auth/signin",
+        {
+          email: email.trim().toLowerCase(),
+          password,
+        },
+      );
 
-    // Save the new session
-    const storage = rememberSession
-      ? localStorage
-      : sessionStorage;
+      const { user, token } = response.data;
 
-    storage.setItem("north_token", token);
-    storage.setItem("north_user", JSON.stringify(user));
-
-    setNotice("Signed in successfully!");
-
-    console.log("Signin successful:", { user });
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error("Signin error:", {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-      });
-
-      if (error.response?.status === 401) {
-        setNotice("Invalid email or password.");
-      } else if (!error.response) {
-        setNotice("Unable to connect to the server. Please try again.");
-      } else {
-        setNotice(
-          error.response.data?.message || "Sign in failed. Please try again."
-        );
+      if (
+        typeof token !== "string" ||
+        !token ||
+        !user ||
+        typeof user.id !== "string" ||
+        typeof user.name !== "string" ||
+        typeof user.email !== "string"
+      ) {
+        setNotice("Login response is missing user or token.");
+        return;
       }
-    } else {
-      console.error("Unexpected signin error:", error);
-      setNotice("An unexpected error occurred.");
+
+      validatingProfile = true;
+      await establishSession(token, rememberSession);
+      navigate("/workspace", { replace: true });
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error("Signin error:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+
+        if (error.response?.status === 401) {
+          setNotice(
+            validatingProfile
+              ? "Your session could not be validated. Please sign in again."
+              : "Invalid email or password.",
+          );
+        } else if (!error.response) {
+          setNotice(
+            validatingProfile
+              ? "Unable to validate your profile. Please try again."
+              : "Unable to connect to the server. Please try again.",
+          );
+        } else {
+          setNotice(
+            error.response.data?.message ||
+              (validatingProfile
+                ? "Unable to validate your profile. Please try again."
+                : "Sign in failed. Please try again."),
+          );
+        }
+      } else {
+        console.error("Unexpected signin error:", error);
+        setNotice("An unexpected error occurred.");
+      }
     }
   }
-}
-
 
   return (
     <AuthCard mode="signin">

@@ -65,8 +65,7 @@ export default function AuthCard({ mode, children }: AuthCardProps) {
         <div className="auth-guarantee">
           <ShieldCheck size={15} strokeWidth={1.7} />
           <p>
-            This UI-only preview does not send or save credentials. Authentication is not
-            connected yet.
+            Your NORTH account details are used to open your private workspace.
           </p>
         </div>
       </div>
