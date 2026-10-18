@@ -4,12 +4,13 @@
   "description": "AI-powered job search and application platform.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx watch src/server.ts",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate:status": "prisma migrate status",
-    "prisma:migrate:deploy": "prisma migrate deploy"
-  },
+  "test": "vitest run",
+  "test:watch": "vitest",
+  "dev": "tsx watch src/server.ts",
+  "prisma:generate": "prisma generate",
+  "prisma:migrate:status": "prisma migrate status",
+  "prisma:migrate:deploy": "prisma migrate deploy"
+},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abhiraj-sac/north.git"
@@ -28,9 +29,12 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.5",
+    "@types/supertest": "^7.2.1",
     "prisma": "^7.10.0",
+    "supertest": "^7.3.1",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
@@ -41,6 +45,6 @@
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   }
 }

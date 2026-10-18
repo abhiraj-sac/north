@@ -5,7 +5,7 @@ import {
   signinUser,
 } from "../services/auth.service.js";
 
-export async function signup(req: Request, res: Response) {
+export async function signup(req: Request, res: Response, next: Function) {
   try {
     const { name, email, password } = req.body;
 
@@ -20,20 +20,7 @@ export async function signup(req: Request, res: Response) {
       user,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "EMAIL_ALREADY_EXISTS"
-    ) {
-      return res.status(409).json({
-        message: "Email is already registered",
-      });
-    }
-
-    console.error("Signup error:", error);
-
-    return res.status(500).json({
-      message: "Signup failed",
-    });
+     next(error);
   }
 }
 

@@ -1,5 +1,5 @@
 
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma.js";
 
 type AuthenticatedRequest = Request & {
@@ -9,14 +9,15 @@ type AuthenticatedRequest = Request & {
 export async function getMe(
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) {
-  try {
-    if (!req.userId) {
-      return res.status(401).json({
-        message: "Authentication required",
-      });
-    }
+  if (!req.userId) {
+    return res.status(401).json({
+      message: "Authentication required",
+    });
+  }
 
+  try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
       select: {
@@ -35,10 +36,6 @@ export async function getMe(
 
     return res.json({ user });
   } catch (error) {
-    console.error("Get current user error:", error);
-
-    return res.status(500).json({
-      message: "Unable to fetch user profile",
-    });
+    return next(error);
   }
 }
