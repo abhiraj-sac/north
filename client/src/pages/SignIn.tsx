@@ -64,8 +64,8 @@ export default function SignIn() {
       }
 
       validatingProfile = true;
-      await establishSession(token, rememberSession);
-      navigate("/workspace", { replace: true });
+      await establishSession(token, rememberSession, user);
+      navigate("/", { replace: true });
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         console.error("Signin error:", {

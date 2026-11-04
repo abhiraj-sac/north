@@ -1,18 +1,26 @@
 import { useNavigate, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import {
+  ResumeLibraryProvider,
+  useResumeLibrary,
+} from "./auth/ResumeLibraryContext";
+import EngineeringPreview from "./components/EngineeringPreview";
 import FeatureStrip from "./components/FeatureStrip";
 import Header from "./components/Header";
-import EngineeringPreview from "./components/EngineeringPreview";
 import SystemFooter from "./components/SystemFooter";
 import WorkspaceStatus from "./components/WorkspaceStatus";
-import Dashboard from "./pages/Dashboard";
+import Landing from "./pages/Landing";
+import PlaceholderPage from "./pages/PlaceholderPage";
+import ProfileResumesPage from "./pages/ProfileResumesPage";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 
 export default function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <ResumeLibraryProvider>
+        <AppRoutes />
+      </ResumeLibraryProvider>
     </AuthProvider>
   );
 }
@@ -21,36 +29,43 @@ function AppRoutes() {
   return (
     <Routes>
       <Route element={<PublicOnlyRoute />}>
-        <Route element={<LandingShell />}>
-          <Route index element={<Navigate to="/signin" replace />} />
+        <Route element={<AuthShell />}>
           <Route path="signin" element={<SignIn />} />
           <Route path="signup" element={<SignUp />} />
         </Route>
       </Route>
       <Route element={<RequireAuth />}>
         <Route element={<WorkspaceShell />}>
-          <Route path="workspace" element={<Dashboard />} />
+          <Route index element={<Landing />} />
+          <Route path="profile" element={<ProfileResumesPage />} />
+          <Route path="roles" element={<PlaceholderPage title="Discovered Roles" />} />
+          <Route
+            path="studio"
+            element={<PlaceholderPage title="Tailored Resume Studio" />}
+          />
+          <Route
+            path="journey"
+            element={<PlaceholderPage title="Application Journey" />}
+          />
         </Route>
       </Route>
-      <Route path="*" element={<Navigate to="/signin" replace />} />
+      <Route path="*" element={<UnknownRoute />} />
     </Routes>
   );
 }
 
-function LandingShell() {
+function AuthShell() {
   return (
     <main className="page-shell">
       <div className="application-frame">
-        <Header />
+        <Header variant="auth" />
         <WorkspaceStatus />
         <FeatureStrip />
-        <section className="content-reservation" aria-label="Workspace content">
-          <div className="reserved-column reserved-column-primary">
+        <section className="auth-page-content" aria-label="Sign in or create an account">
+          <div className="auth-page-form">
             <Outlet />
           </div>
-          <div className="reserved-column reserved-column-secondary">
-            <EngineeringPreview />
-          </div>
+          <EngineeringPreview />
         </section>
         <SystemFooter />
       </div>
@@ -60,9 +75,11 @@ function LandingShell() {
 
 function WorkspaceShell() {
   const { signOut } = useAuth();
+  const { clearResumes } = useResumeLibrary();
   const navigate = useNavigate();
 
   function handleSignOut() {
+    clearResumes();
     signOut();
     navigate("/signin", { replace: true });
   }
@@ -71,7 +88,7 @@ function WorkspaceShell() {
     <main className="page-shell">
       <div className="application-frame">
         <Header onLogout={handleSignOut} />
-        <section className="dashboard-content" aria-label="NORTH workspace">
+        <section className="workspace-content" aria-label="NORTH workspace">
           <Outlet />
         </section>
       </div>
@@ -80,17 +97,49 @@ function WorkspaceShell() {
 }
 
 function PublicOnlyRoute() {
-  const { status } = useAuth();
+  const { status, error, retrySessionCheck } = useAuth();
 
   if (status === "loading") {
     return <SessionScreen message="Checking your NORTH session..." loading />;
   }
 
   if (status === "authenticated") {
-    return <Navigate to="/workspace" replace />;
+    return <Navigate to="/" replace />;
+  }
+
+  if (status === "error") {
+    return (
+      <SessionScreen
+        message="Your session could not be checked."
+        detail={error ?? undefined}
+        actionLabel="Try again"
+        onAction={retrySessionCheck}
+      />
+    );
   }
 
   return <Outlet />;
+}
+
+function UnknownRoute() {
+  const { status, error, retrySessionCheck } = useAuth();
+
+  if (status === "loading") {
+    return <SessionScreen message="Checking your NORTH session..." loading />;
+  }
+
+  if (status === "error") {
+    return (
+      <SessionScreen
+        message="Your session could not be checked."
+        detail={error ?? undefined}
+        actionLabel="Try again"
+        onAction={retrySessionCheck}
+      />
+    );
+  }
+
+  return <Navigate to={status === "authenticated" ? "/" : "/signin"} replace />;
 }
 
 function RequireAuth() {

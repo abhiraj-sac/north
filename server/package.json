@@ -4,13 +4,13 @@
   "description": "AI-powered job search and application platform.",
   "main": "index.js",
   "scripts": {
-  "test": "vitest run",
-  "test:watch": "vitest",
-  "dev": "tsx watch src/server.ts",
-  "prisma:generate": "prisma generate",
-  "prisma:migrate:status": "prisma migrate status",
-  "prisma:migrate:deploy": "prisma migrate deploy"
-},
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx watch src/server.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:status": "prisma migrate status",
+    "prisma:migrate:deploy": "prisma migrate deploy"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abhiraj-sac/north.git"
@@ -37,6 +37,8 @@
     "vitest": "^5.0.5"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",

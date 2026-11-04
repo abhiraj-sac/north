@@ -5,7 +5,6 @@ import jwt from "jsonwebtoken";
 type AuthenticatedRequest = Request & {
   userId?: string;
 };
-
 export function authenticateToken(
   req: AuthenticatedRequest,
   res: Response,

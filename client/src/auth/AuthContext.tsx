@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -24,15 +25,17 @@ interface AuthContextValue {
   status: AuthStatus;
   user: UserProfile | null;
   error: string | null;
-  establishSession: (token: string, rememberSession: boolean) => Promise<void>;
+  establishSession: (
+    token: string,
+    rememberSession: boolean,
+    user: UserProfile,
+  ) => Promise<void>;
   signOut: () => void;
   retrySessionCheck: () => void;
 }
 
 interface StoredSession {
-  token: string;
   storage: SessionStorage;
-  user: UserProfile | null;
 }
 
 const TOKEN_KEY = "north_token";
@@ -53,39 +56,18 @@ function isUserProfile(value: unknown): value is UserProfile {
   );
 }
 
-function readStoredUser(storage: SessionStorage): UserProfile | null {
-  const serializedUser = storage.getItem(USER_KEY);
-  if (!serializedUser) {
-    return null;
-  }
-
-  try {
-    const user: unknown = JSON.parse(serializedUser);
-    return isUserProfile(user) ? user : null;
-  } catch (error: unknown) {
-    if (error instanceof SyntaxError) {
-      return null;
-    }
-    throw error;
-  }
-}
-
 function readStoredSession(): StoredSession | null {
   const localToken = localStorage.getItem(TOKEN_KEY);
   if (localToken) {
     return {
-      token: localToken,
       storage: localStorage,
-      user: readStoredUser(localStorage),
     };
   }
 
   const sessionToken = sessionStorage.getItem(TOKEN_KEY);
   if (sessionToken) {
     return {
-      token: sessionToken,
       storage: sessionStorage,
-      user: readStoredUser(sessionStorage),
     };
   }
 
@@ -128,34 +110,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<UserProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sessionValidationRef = useRef<Promise<void> | null>(null);
 
   const validateStoredSession = useCallback(async () => {
-    setStatus("loading");
-    setError(null);
-
-    const storedSession = readStoredSession();
-    if (!storedSession) {
-      setUser(null);
-      setStatus("unauthenticated");
-      return;
+    if (sessionValidationRef.current) {
+      return sessionValidationRef.current;
     }
 
-    setUser(storedSession.user);
-    try {
-      const profile = await fetchCurrentUser();
-      storedSession.storage.setItem(USER_KEY, JSON.stringify(profile));
-      setUser(profile);
-      setStatus("authenticated");
-    } catch (requestError: unknown) {
-      if (isInvalidSessionError(requestError)) {
+    setStatus("loading");
+    setError(null);
+    setUser(null);
+
+    const validation = (async () => {
+      const storedSession = readStoredSession();
+      if (!storedSession) {
         clearStoredSession();
         setUser(null);
         setStatus("unauthenticated");
         return;
       }
 
-      setError(getSessionErrorMessage(requestError));
-      setStatus("error");
+      try {
+        const profile = await fetchCurrentUser();
+        storedSession.storage.setItem(USER_KEY, JSON.stringify(profile));
+        setUser(profile);
+        setStatus("authenticated");
+      } catch (requestError: unknown) {
+        if (isInvalidSessionError(requestError)) {
+          clearStoredSession();
+          setUser(null);
+          setStatus("unauthenticated");
+          return;
+        }
+
+        setError(getSessionErrorMessage(requestError));
+        setStatus("error");
+      }
+    })();
+
+    sessionValidationRef.current = validation;
+    try {
+      await validation;
+    } finally {
+      if (sessionValidationRef.current === validation) {
+        sessionValidationRef.current = null;
+      }
     }
   }, []);
 
@@ -164,10 +163,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [validateStoredSession]);
 
   const establishSession = useCallback(
-    async (token: string, rememberSession: boolean) => {
+    async (token: string, rememberSession: boolean, signedInUser: UserProfile) => {
       clearStoredSession();
       const storage = rememberSession ? localStorage : sessionStorage;
       storage.setItem(TOKEN_KEY, token);
+      storage.setItem(USER_KEY, JSON.stringify(signedInUser));
       setStatus("loading");
       setError(null);
       setUser(null);
