@@ -9,8 +9,12 @@
     "dev": "tsx watch src/server.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:status": "prisma migrate status",
-    "prisma:migrate:deploy": "prisma migrate deploy"
-  },
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "worker:resume": "tsx src/workers/resume.worker.ts",
+"dev:all": "concurrently -n API,WORKER \"npm run dev:api\" \"npm run worker:resume\"",
+"dev:api": "tsx src/server.ts"  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abhiraj-sac/north.git"
@@ -30,6 +34,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.5",
     "@types/supertest": "^7.2.1",
+    "concurrently": "^10.0.7",
     "prisma": "^7.10.0",
     "supertest": "^7.3.1",
     "tsx": "^4.23.15",
@@ -42,10 +47,13 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^6.7.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.7",
     "express": "^5.3.0",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.23.1",
     "zod": "^4.6.7"
   }

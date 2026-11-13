@@ -4,3 +4,15 @@ node_modules/
 .env.*
 !.env.example
 dist/
+
+# Python
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+*.py[cod]
+
+# Local editor settings
+.vscode/
+
+# Local test files
+server/test-resume.pdf

@@ -9,7 +9,9 @@ const resumeRouter = Router();
 import {
   downloadResume,
 } from "../controllers/resume-upload.controller.js";
-
+import {
+  deleteResumeController
+} from "../controllers/resume-upload.controller.js";
 resumeRouter.get("/", authenticateToken, getResumes);
 resumeRouter.post("/upload-init",authenticateToken,initiateResumeUpload);
 resumeRouter.post(
@@ -17,7 +19,11 @@ resumeRouter.post(
   authenticateToken,
   completeResumeUploadController
 );
-
+resumeRouter.delete(
+  "/:resumeId",
+  authenticateToken,
+  deleteResumeController
+);
 resumeRouter.get("/:resumeId/download", authenticateToken, downloadResume);
 
 export default resumeRouter;

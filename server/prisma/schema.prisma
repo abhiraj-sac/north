@@ -13,6 +13,12 @@ enum ResumeUploadStatus {
   UPLOADED
   DELETING
 }
+enum VerificationStatus {
+  PENDING
+  PASSED
+  FAILED
+  NEEDS_REVIEW
+}
 
 enum ExtractionStatus {
   QUEUED
@@ -28,6 +34,8 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  savedJobs SavedJob[]
+  candidateProfile CandidateProfile?
 
   resumes Resume[]
 }
@@ -63,8 +71,141 @@ model ResumeExtraction {
   completedAt   DateTime?
   createdAt     DateTime         @default(now())
 
-  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  resume       Resume               @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  verification ResumeVerification?
 
   @@index([resumeId, createdAt])
   @@index([resumeId, status])
+}
+model ResumeVerification {
+  id             String             @id @default(cuid())
+  extractionId   String             @unique
+  status         VerificationStatus @default(PENDING)
+  checks         Json?
+  failureReasons String[]           @default([])
+  verifiedAt     DateTime?
+  createdAt      DateTime           @default(now())
+
+  extraction ResumeExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+}
+
+
+
+enum JobProvider {
+  GREENHOUSE
+  HIMALAYAS
+  LEVER
+}
+
+enum JobStatus {
+  ACTIVE
+  CLOSED
+  EXPIRED
+}
+
+enum JobWorkMode {
+  REMOTE
+  HYBRID
+  ONSITE
+  UNKNOWN
+}
+
+enum JobSyncStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+model JobSource {
+  id           String      @id @default(cuid())
+  provider     JobProvider
+  companyName  String
+  boardToken   String
+  boardUrl     String?
+  countryCode  String      @default("IN")
+  isActive     Boolean     @default(true)
+  lastSyncedAt DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  jobs     Job[]
+  syncLogs JobSyncLog[]
+
+  @@unique([provider, boardToken])
+  @@index([isActive, provider])
+}
+
+model Job {
+  id               String       @id @default(cuid())
+  sourceId         String
+  externalId       String
+  title            String
+  companyName      String
+  location         String?
+  countryCode      String?
+  workMode         JobWorkMode  @default(UNKNOWN)
+  employmentType   String?
+  category         String?
+  descriptionHtml  String?      @db.Text
+  descriptionText  String?      @db.Text
+  applyUrl         String
+  sourcePostedAt   DateTime?
+  sourceUpdatedAt  DateTime?
+  firstSeenAt      DateTime     @default(now())
+  lastSeenAt       DateTime     @default(now())
+  status           JobStatus    @default(ACTIVE)
+  rawPayload       Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  source    JobSource  @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  savedBy   SavedJob[]
+
+  @@unique([sourceId, externalId])
+  @@index([status, sourceUpdatedAt])
+  @@index([countryCode, status])
+  @@index([category, status])
+  @@index([firstSeenAt])
+}
+
+model JobSyncLog {
+  id            String        @id @default(cuid())
+  sourceId      String
+  status        JobSyncStatus @default(RUNNING)
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+  fetchedCount  Int           @default(0)
+  createdCount  Int           @default(0)
+  updatedCount  Int           @default(0)
+  closedCount   Int           @default(0)
+  errorMessage  String?       @db.Text
+
+  source JobSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId, startedAt])
+  @@index([status, startedAt])
+}
+
+model SavedJob {
+  id        String   @id @default(cuid())
+  userId    String
+  jobId     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId, createdAt])
+}
+
+model CandidateProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  profile   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

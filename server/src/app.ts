@@ -4,7 +4,9 @@ import authRouter from "./routes/auth.routes.ts";
 import usersRouter from "./routes/users.routes.ts";
 import { errorHandler } from "./middleware/errorHandler.ts";
 import resumeRouter from "./routes/resume.routes.ts";
-import { testS3Connection } from "./lib/s3.js";
+import resumeVerificationRoutes from "./routes/resume-verification.routes.js";
+import candidateProfileRoutes from "./routes/candidate-profile.routes.js";
+import discoveredJobsRoutes from "./routes/discovered-jobs.routes.js";
 
 const app = express();
 
@@ -27,23 +29,14 @@ app.use("/api/users", usersRouter);
 
 // app.use("/api/users", usersRouter);
 app.use("/api/resumes", resumeRouter);
-
+app.use("/api/resume-verification", resumeVerificationRoutes);
+app.use("/api/candidate-profile", candidateProfileRoutes);
 
 // Health check
 app.get("/health", (_req, res) => {
   res.json({ message: "NORTH API is running" });
 });
-// 
-const PORT = Number(process.env.PORT) || 3000;
+app.use("/api/jobs", discoveredJobsRoutes);
 
-app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
-
-  try {
-    await testS3Connection();
-  } catch (error) {
-    console.error("AWS S3 connection failed:", error);
-  }
-});
 
 export default app;

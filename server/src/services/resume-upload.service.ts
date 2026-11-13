@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { PutObjectCommand,HeadObjectCommand,GetObjectCommand } from "@aws-sdk/client-s3";
+import { resumeExtractionQueue } from "../queues/resume.queue.js";
+import {
+  PutObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3, S3_BUCKET } from "../lib/s3.js";
 import { prisma } from "../lib/prisma.js";
@@ -124,6 +130,16 @@ export async function completeResumeUpload(
   if (updated.count === 0) {
     throw new Error("UPLOAD_ALREADY_COMPLETED");
   }
+  await resumeExtractionQueue.add(
+  "extract-resume",
+  {
+    userId,
+    resumeId,
+  },
+  {
+    jobId: resumeId,
+  }
+);
 
   return {
     resumeId: resume.id,
@@ -161,5 +177,74 @@ export async function getResumeDownloadUrl(
   return {
     downloadUrl,
     expiresIn: 300,
+  };
+}
+export async function deleteResume(
+  userId: string,
+  resumeId: string
+) {
+  // 1. Find resume belonging to this user
+  const resume = await prisma.resume.findFirst({
+    where: {
+      id: resumeId,
+      userId,
+      uploadStatus: {
+        in: ["UPLOADED", "DELETING"],
+      },
+    },
+  });
+
+  if (!resume) {
+    throw new Error("RESUME_NOT_FOUND");
+  }
+
+  // 2. Atomically transition UPLOADED -> DELETING
+  const transition = await prisma.resume.updateMany({
+    where: {
+      id: resumeId,
+      userId,
+      uploadStatus: "UPLOADED",
+    },
+    data: {
+      uploadStatus: "DELETING",
+    },
+  });
+
+  // 3. If another request already started deletion,
+  // verify that the resume is still in DELETING state
+  if (transition.count === 0) {
+    const deletingResume = await prisma.resume.findFirst({
+      where: {
+        id: resumeId,
+        userId,
+        uploadStatus: "DELETING",
+      },
+    });
+
+    if (!deletingResume) {
+      throw new Error("RESUME_NOT_FOUND");
+    }
+  }
+
+  // 4. Delete S3 object
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: resume.s3ObjectKey,
+    })
+  );
+
+  // 5. Delete DB record only after S3 succeeds
+  await prisma.resume.deleteMany({
+    where: {
+      id: resumeId,
+      userId,
+      uploadStatus: "DELETING",
+    },
+  });
+
+  return {
+    resumeId,
+    message: "Resume deleted successfully",
   };
 }

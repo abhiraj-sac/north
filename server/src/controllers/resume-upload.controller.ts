@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { getResumeDownloadUrl } from "../services/resume-upload.service.js";
 import { createResumeUpload, completeResumeUpload } from "../services/resume-upload.service.js";
+import { deleteResume } from "../services/resume-upload.service.js";
 
 type AuthenticatedRequest = Request & {
   userId?: string;
@@ -157,6 +158,40 @@ export async function downloadResume(
       message: "Download URL generated successfully",
       ...result,
     });
+  } catch (error) {
+    if (error instanceof Error && error.message === "RESUME_NOT_FOUND") {
+      return res.status(404).json({
+        message: "Resume not found",
+      });
+    }
+
+    next(error);
+  }
+}
+
+export async function deleteResumeController(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
+    const resumeId = req.params.resumeId;
+
+    if (typeof resumeId !== "string" || !resumeId.trim()) {
+      return res.status(400).json({
+        message: "Valid Resume ID is required",
+      });
+    }
+
+    const result = await deleteResume(req.userId, resumeId);
+
+    return res.status(200).json(result);
   } catch (error) {
     if (error instanceof Error && error.message === "RESUME_NOT_FOUND") {
       return res.status(404).json({

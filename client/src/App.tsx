@@ -13,6 +13,7 @@ import Landing from "./pages/Landing";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ProfileResumesPage from "./pages/ProfileResumesPage";
 import SignIn from "./pages/SignIn";
+import DiscoveredRolesPage from "./pages/DiscoveredRolesPage";
 import SignUp from "./pages/SignUp";
 
 export default function App() {
@@ -38,7 +39,7 @@ function AppRoutes() {
         <Route element={<WorkspaceShell />}>
           <Route index element={<Landing />} />
           <Route path="profile" element={<ProfileResumesPage />} />
-          <Route path="roles" element={<PlaceholderPage title="Discovered Roles" />} />
+          <Route path="roles" element={<DiscoveredRolesPage />} />
           <Route
             path="studio"
             element={<PlaceholderPage title="Tailored Resume Studio" />}
