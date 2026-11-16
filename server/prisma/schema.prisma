@@ -20,6 +20,11 @@ enum VerificationStatus {
   NEEDS_REVIEW
 }
 
+enum GeneratedResumeStatus {
+  DRAFT
+  FINALIZED
+}
+
 enum ExtractionStatus {
   QUEUED
   PROCESSING
@@ -35,6 +40,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   savedJobs SavedJob[]
+  generatedResumes GeneratedResume[]
   candidateProfile CandidateProfile?
 
   resumes Resume[]
@@ -95,6 +101,7 @@ enum JobProvider {
   GREENHOUSE
   HIMALAYAS
   LEVER
+  AMAZON
 }
 
 enum JobStatus {
@@ -121,8 +128,10 @@ model JobSource {
   id           String      @id @default(cuid())
   provider     JobProvider
   companyName  String
-  boardToken   String
+  sourceKey    String
+  boardToken   String?
   boardUrl     String?
+  config       Json?
   countryCode  String      @default("IN")
   isActive     Boolean     @default(true)
   lastSyncedAt DateTime?
@@ -132,8 +141,9 @@ model JobSource {
   jobs     Job[]
   syncLogs JobSyncLog[]
 
-  @@unique([provider, boardToken])
-  @@index([isActive, provider])
+  @@unique([provider, sourceKey])
+@@index([isActive, provider])
+  // @@index([isActive, provider])
 }
 
 model Job {
@@ -161,6 +171,7 @@ model Job {
 
   source    JobSource  @relation(fields: [sourceId], references: [id], onDelete: Restrict)
   savedBy   SavedJob[]
+  generatedResumes GeneratedResume[]
 
   @@unique([sourceId, externalId])
   @@index([status, sourceUpdatedAt])
@@ -201,11 +212,34 @@ model SavedJob {
 }
 
 model CandidateProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  profile   Json
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  profile        Json
+  customizations Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+
+model GeneratedResume {
+  id        String                @id @default(cuid())
+  userId    String
+  jobId     String
+
+  content   Json
+  status    GeneratedResumeStatus @default(DRAFT)
+  version   Int                   @default(1)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId, updatedAt])
+  @@index([jobId])
 }

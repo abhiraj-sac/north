@@ -11,6 +11,18 @@ async function main() {
       "https://boards.greenhouse.io/razorpaysoftwareprivatelimited",
   });
 
+  const amazonSource = await createJobSource({
+  provider: "AMAZON",
+  companyName: "Amazon",
+  sourceKey: "amazon-global",
+  countryCode: "CA",
+  config: {
+    baseQuery: "",
+  },
+});
+
+console.log("Amazon source registered successfully:");
+console.log(amazonSource);
   console.log("Job source registered successfully:");
   console.log(source);
 }

@@ -52,3 +52,20 @@ export async function getDiscoveredJobs({
     },
   };
 }
+
+export async function getDiscoveredJobById(id: string) {
+  return prisma.job.findFirst({
+    where: {
+      id,
+      status: "ACTIVE",
+    },
+    include: {
+      source: {
+        select: {
+          provider: true,
+          companyName: true,
+        },
+      },
+    },
+  });
+}

@@ -1,4 +1,10 @@
 import {
+  getCandidateProfile,
+  generateCandidateProfile,
+  updateCandidateProfile,
+  type CandidateProfile,
+} from "../lib/candidateProfileApi";
+import {
   ArrowDownToLine,
   ArrowUpRight,
   BadgeCheck,
@@ -18,7 +24,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import { useRef, useState,useEffect, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import {
   RESUME_LIMIT,
@@ -32,6 +38,8 @@ interface ProfileDetails {
   location: string;
   summary: string;
 }
+
+
 
 const initialProfile: ProfileDetails = {
   headline: "",
@@ -109,7 +117,6 @@ function getInitials(name: string): string {
       .join("") || "N"
   );
 }
-
 function getStatusLabel(status: LocalResumeStatus): string {
   switch (status) {
     case "selected":
@@ -688,9 +695,15 @@ function ProfileIntegrity({ hasResumes }: { hasResumes: boolean }) {
 function SynthesisStatus({
   resumeCount,
   hasResumes,
+  candidateProfile,
+  isGenerating,
+  onGenerate,
 }: {
   resumeCount: number;
   hasResumes: boolean;
+  candidateProfile: CandidateProfile | null;
+  isGenerating: boolean;
+  onGenerate: () => void;
 }) {
   return (
     <section className="pr-synthesis-card" aria-labelledby="pr-synthesis-heading">
@@ -728,13 +741,20 @@ function SynthesisStatus({
           <span>PROCESSING STATUS</span>
         </div>
       </div>
-      <a
-        className="pr-button pr-button-primary pr-review-button"
-        href="#pr-resumes-heading"
-      >
-        {hasResumes ? "Manage selected resumes" : "Add your first resume"}
-        <ChevronRight size={15} />
-      </a>
+      <button
+  type="button"
+  className="pr-button pr-button-primary pr-review-button"
+  onClick={onGenerate}
+  disabled={isGenerating || !hasResumes}
+>
+  <Sparkles size={15} />
+  {isGenerating
+    ? "Generating your profile..."
+    : candidateProfile
+      ? "Regenerate profile"
+      : "Unlock your profile"}
+  <ChevronRight size={15} />
+</button>
     </section>
   );
 }
@@ -752,7 +772,114 @@ const {
   getResumeDownloadUrl,
 } = useResumeLibrary();
 
+
+const [candidateProfile, setCandidateProfile] =
+  useState<CandidateProfile | null>(null);
+
+const [isGenerating, setIsGenerating] = useState(false);
+const [profileError, setProfileError] = useState<string | null>(null);
+const [isProfileLoading, setIsProfileLoading] = useState(true);
+
+useEffect(() => {
+  let isMounted = true;
+
+  async function loadProfile() {
+    try {
+      const profile = await getCandidateProfile();
+
+      if (isMounted && profile.candidateProfile) {
+  const aiProfile = profile.candidateProfile;
+  const customizations = profile.customizations;
+
+  setCandidateProfile(aiProfile);
+
+  setProfileDetails({
+    headline:
+      customizations?.headline ||
+      aiProfile.work_experience?.[0]?.role ||
+      "",
+    location:
+      customizations?.location ||
+      aiProfile.personal_information?.location ||
+      "",
+    summary:
+      customizations?.summary ||
+      aiProfile.professional_summary ||
+      "",
+  });
+}
+    } catch (error) {
+      console.error("Failed to load candidate profile:", error);
+      if (isMounted) {
+        setProfileError("Could not load your saved profile.");
+      }
+    } finally {
+      if (isMounted) setIsProfileLoading(false);
+    }
+  }
+
+  loadProfile();
+
+  return () => {
+    isMounted = false;
+  };
+}, []);
+
+  const handleGenerateProfile = async () => {
+    if (resumes.length === 0) {
+      setProfileError("Please upload a resume first.");
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      setProfileError(null);
+
+      const profile = await generateCandidateProfile();
+
+setCandidateProfile(profile);
+
+setProfileDetails({
+  headline: profile.work_experience?.[0]?.role || "",
+  location: profile.personal_information?.location || "",
+  summary: profile.professional_summary || "",
+});
+    } catch (error: any) {
+      console.error("Profile generation failed:", error);
+
+      if (error.response?.status === 422) {
+        setProfileError(
+          error.response.data.details || "Resume verification failed."
+        );
+      } else {
+        setProfileError(
+          error.response?.data?.message ||
+          "Unable to generate your profile."
+        );
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+};
+
+
   const [profileDetails, setProfileDetails] = useState(initialProfile);
+
+  async function handleSaveProfile(details: ProfileDetails) {
+  try {
+    setProfileError(null);
+
+    await updateCandidateProfile(details);
+
+    setProfileDetails(details);
+  } catch (error: any) {
+    console.error("Failed to save profile:", error);
+
+    setProfileError(
+      error.response?.data?.message || "Could not save profile changes."
+    );
+  }
+}
   const handleDownload = async (resumeId: string) => {
   try {
     const downloadUrl = await getResumeDownloadUrl(resumeId);
@@ -854,9 +981,12 @@ const {
           </div>
 
           <SynthesisStatus
-            resumeCount={totalResumeCount}
-            hasResumes={hasResumes}
-          />
+  resumeCount={totalResumeCount}
+  hasResumes={hasResumes}
+  candidateProfile={candidateProfile}
+  isGenerating={isGenerating}
+  onGenerate={handleGenerateProfile}
+/>
         </section>
       </div>
     </main>

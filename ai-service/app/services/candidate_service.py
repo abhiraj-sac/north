@@ -4,8 +4,8 @@ import time
 import logging
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_ollama import ChatOllama
+from ai.llm_factory import get_structured_llm
+from app.schemas.candidate import CandidateProfile
 # from app.schemas.candidate_profile import CandidateProfile
 from app.schemas.candidate import CandidateProfile
 
@@ -42,14 +42,8 @@ logger = logging.getLogger(__name__)
 # )
 
 
-llm = ChatOllama(
-    model="qwen2.5:1.5b",
-    temperature=0,
-)
-
-structured_llm = llm.with_structured_output(
-    CandidateProfile,
-    method="json_schema",
+structured_llm = get_structured_llm(
+    CandidateProfile
 )
 
 # ---------- CANDIDATE PROFILE PROMPT ----------

@@ -15,7 +15,7 @@ export const resumeWorker = new Worker<ResumeExtractionJob>(
   RESUME_EXTRACTION_QUEUE,
   async (job) => {
     const { userId, resumeId } = job.data;
-
+    
     console.log(`Starting resume extraction: ${resumeId}`);
 
     await extractResumeText(userId, resumeId);

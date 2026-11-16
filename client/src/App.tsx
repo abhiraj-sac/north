@@ -1,9 +1,11 @@
 import { useNavigate, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import ApplicationWorkspacePage from "./pages/ApplicationWorkspacePage";
 import {
   ResumeLibraryProvider,
   useResumeLibrary,
 } from "./auth/ResumeLibraryContext";
+import ResumeStudioPage from "./pages/ResumeStudioPage";
 import EngineeringPreview from "./components/EngineeringPreview";
 import FeatureStrip from "./components/FeatureStrip";
 import Header from "./components/Header";
@@ -41,9 +43,13 @@ function AppRoutes() {
           <Route path="profile" element={<ProfileResumesPage />} />
           <Route path="roles" element={<DiscoveredRolesPage />} />
           <Route
-            path="studio"
-            element={<PlaceholderPage title="Tailored Resume Studio" />}
-          />
+  path="applications/new/:jobId"
+  element={<ApplicationWorkspacePage />}
+/>
+          <Route
+  path="studio/:jobId"
+  element={<ResumeStudioPage />}
+/>
           <Route
             path="journey"
             element={<PlaceholderPage title="Application Journey" />}
@@ -76,11 +82,11 @@ function AuthShell() {
 
 function WorkspaceShell() {
   const { signOut } = useAuth();
-  const { clearResumes } = useResumeLibrary();
+  const { clearSelectedFiles } = useResumeLibrary();
   const navigate = useNavigate();
 
   function handleSignOut() {
-    clearResumes();
+    clearSelectedFiles()
     signOut();
     navigate("/signin", { replace: true });
   }

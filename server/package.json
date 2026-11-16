@@ -13,8 +13,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "worker:resume": "tsx src/workers/resume.worker.ts",
-"dev:all": "concurrently -n API,WORKER \"npm run dev:api\" \"npm run worker:resume\"",
-"dev:api": "tsx src/server.ts"  },
+    "dev:all": "concurrently -n API,WORKER \"npm run dev:api\" \"npm run worker:resume\"",
+    "dev:api": "tsx src/server.ts"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abhiraj-sac/north.git"
@@ -55,6 +56,7 @@
     "jsonwebtoken": "^9.0.3",
     "pdf-parse": "^2.4.5",
     "pg": "^8.23.1",
+    "undici": "^8.12.4",
     "zod": "^4.6.7"
   }
 }

@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
@@ -39,14 +38,12 @@ interface JobsResponse {
   };
 }
 
-
-
 function getTimeAgo(date: string | null) {
   if (!date) return "Update date unavailable";
 
   const hours = Math.max(
     0,
-    Math.floor((Date.now() - new Date(date).getTime()) / 3600000)
+    Math.floor((Date.now() - new Date(date).getTime()) / 3600000),
   );
 
   if (hours < 1) return "Updated less than an hour ago";
@@ -76,42 +73,40 @@ export default function DiscoveredRolesPage() {
   useEffect(() => {
     const controller = new AbortController();
 
+    async function fetchJobs() {
+      setLoading(true);
+      setError("");
 
-async function fetchJobs() {
-  setLoading(true);
-  setError("");
+      try {
+        const response = await api.get<JobsResponse>("/api/jobs", {
+          params: {
+            page,
+            limit: 20,
+          },
+          signal: controller.signal,
+        });
 
-  try {
-    const response = await api.get<JobsResponse>("/api/jobs", {
-      params: {
-        page,
-        limit: 20,
-      },
-      signal: controller.signal,
-    });
+        const data = response.data;
 
-    const data = response.data;
+        setJobs(data.jobs ?? []);
+        setTotal(data.pagination?.total ?? 0);
+        setTotalPages(data.pagination?.totalPages ?? 0);
+      } catch (err) {
+        if (controller.signal.aborted) return;
 
-    setJobs(data.jobs ?? []);
-    setTotal(data.pagination?.total ?? 0);
-    setTotalPages(data.pagination?.totalPages ?? 0);
-  } catch (err) {
-    if (controller.signal.aborted) return;
-
-    setError(
-      axios.isAxiosError(err)
-        ? err.response?.data?.message ?? err.message
-        : err instanceof Error
-          ? err.message
-          : "Something went wrong."
-    );
-  } finally {
-    if (!controller.signal.aborted) {
-      setLoading(false);
+        setError(
+          axios.isAxiosError(err)
+            ? (err.response?.data?.message ?? err.message)
+            : err instanceof Error
+              ? err.message
+              : "Something went wrong.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
     }
-  }
-}
-
 
     fetchJobs();
 
@@ -127,7 +122,7 @@ async function fetchJobs() {
       (job) =>
         job.title.toLowerCase().includes(query) ||
         job.companyName.toLowerCase().includes(query) ||
-        (job.location ?? "").toLowerCase().includes(query)
+        (job.location ?? "").toLowerCase().includes(query),
     );
   }, [jobs, search]);
 
@@ -142,9 +137,7 @@ async function fetchJobs() {
 
           <h1>Discover Opportunities</h1>
 
-          <p>
-            Explore recently updated technology roles across India.
-          </p>
+          <p>Explore recently updated technology roles across India.</p>
         </div>
 
         <div className="dr-count-card">
@@ -204,10 +197,7 @@ async function fetchJobs() {
         <div className="dr-state">
           <h3>We couldn't load the jobs</h3>
           <p>{error}</p>
-          <button
-            type="button"
-            onClick={() => setPage((current) => current)}
-          >
+          <button type="button" onClick={() => setPage((current) => current)}>
             Try again
           </button>
         </div>
@@ -227,11 +217,11 @@ async function fetchJobs() {
             <article
               className="dr-job-card"
               key={job.id}
-              onClick={() => navigate(`/roles/${job.id}`)}
+              onClick={() => navigate(`/applications/new/${job.id}`)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  navigate(`/roles/${job.id}`);
-                }
+  navigate(`/applications/new/${job.id}`);
+}
               }}
               role="link"
               tabIndex={0}
@@ -244,9 +234,7 @@ async function fetchJobs() {
                 <div className="dr-job-content">
                   <div className="dr-company-name">
                     {job.companyName}
-                    <span className="dr-source-tag">
-                      {job.source.provider}
-                    </span>
+                    <span className="dr-source-tag">{job.source.provider}</span>
                   </div>
 
                   <h3>{job.title}</h3>
@@ -266,8 +254,7 @@ async function fetchJobs() {
                   <p className="dr-job-description">
                     {job.descriptionText?.slice(0, 220) ||
                       "View the original listing for job details."}
-                    {job.descriptionText &&
-                    job.descriptionText.length > 220
+                    {job.descriptionText && job.descriptionText.length > 220
                       ? "..."
                       : ""}
                   </p>
@@ -279,12 +266,13 @@ async function fetchJobs() {
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    navigate(`/roles/${job.id}`);
+                    navigate(`/applications/new/${job.id}`);
                   }}
                 >
-                  View Details
+                  Start Application
                   <ArrowRight size={15} />
                 </button>
+                <span>Create a job-specific resume</span>
                 <span>Explore this opportunity</span>
               </div>
             </article>

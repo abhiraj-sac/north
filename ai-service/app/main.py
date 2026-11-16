@@ -1,6 +1,7 @@
 
 from fastapi import FastAPI, HTTPException
-
+from app.schemas.resume_studio import ResumeStudioGenerateRequest
+from app.services.resume_studio_service import generate_resume_studio
 from app.schemas.request import CandidateProfileRequest
 from app.schemas.candidate import CandidateProfile
 from app.services.candidate_service import generate_candidate_profile
@@ -31,16 +32,38 @@ def create_candidate_profile(
     request: CandidateProfileRequest
 ):
     try:
-        profile = generate_candidate_profile(request.raw_text)
-        return profile
+        return generate_candidate_profile(request.raw_text)
+
+    except Exception as e:
+        logger.exception("Candidate profile generation failed")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Candidate profile generation failed"
+        ) from e
+
+@app.post(
+    "/api/resume-studio/generate",
+    response_model=CandidateProfile
+)
+def create_resume_studio(
+    request: ResumeStudioGenerateRequest
+):
+    try:
+        return generate_resume_studio(request)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=422,
+            detail=str(e)
+        ) from e
 
     except Exception as e:
         logger.exception(
-            "Candidate profile generation failed: %s",
-            str(e)
+            "Resume Studio generation failed"
         )
 
-    raise HTTPException(
-        status_code=500,
-        detail=f"Candidate profile generation failed: {str(e)}"
-    ) from e
+        raise HTTPException(
+            status_code=500,
+            detail="Resume Studio generation failed"
+        ) from e
