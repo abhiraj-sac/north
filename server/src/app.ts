@@ -14,7 +14,7 @@ const app = express();
 // Allow requests from the local React frontend
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: "https://north-0fmn.onrender.com",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
