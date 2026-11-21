@@ -248,3 +248,54 @@ export async function deleteResume(
     message: "Resume deleted successfully",
   };
 }
+
+// Receives the file from the API client and stores it in S3 (no browser-to-S3 CORS needed).
+export async function uploadResumeFile(
+  userId: string,
+  resumeId: string,
+  body: Buffer
+) {
+  const resume = await prisma.resume.findFirst({
+    where: { id: resumeId, userId, uploadStatus: "PENDING_UPLOAD" },
+  });
+
+  if (!resume) {
+    throw new Error("RESUME_NOT_FOUND");
+  }
+
+  if (resume.uploadExpiresAt && resume.uploadExpiresAt < new Date()) {
+    throw new Error("UPLOAD_EXPIRED");
+  }
+
+  if (body.length === 0 || body.length > MAX_FILE_SIZE) {
+    throw new Error("INVALID_FILE_SIZE");
+  }
+
+  const mimeType =
+    resume.mimeType ??
+    (resume.s3ObjectKey.endsWith(".pdf")
+      ? "application/pdf"
+      : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+  // PDF files start with "%PDF"; DOCX files are ZIP archives starting with "PK".
+  const signature = body.subarray(0, 4).toString("latin1");
+  const looksValid =
+    mimeType === "application/pdf"
+      ? signature === "%PDF"
+      : signature.startsWith("PK");
+
+  if (!looksValid) {
+    throw new Error("INVALID_FILE_CONTENT");
+  }
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: resume.s3ObjectKey,
+      ContentType: mimeType,
+      Body: body,
+    })
+  );
+
+  return { resumeId: resume.id };
+}

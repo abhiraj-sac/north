@@ -4,6 +4,7 @@ import {
   updateCandidateProfile,
   type CandidateProfile,
 } from "../lib/candidateProfileApi";
+import { useCandidateProfileStatus } from "../auth/CandidateProfileContext";
 import {
   ArrowDownToLine,
   ArrowUpRight,
@@ -15,6 +16,13 @@ import {
   Clock3,
   CloudUpload,
   FileText,
+  Award,
+  GraduationCap,
+  Github,
+  Globe,
+  Linkedin,
+  Mail,
+  Phone,
   MapPin,
   Pencil,
   Plus,
@@ -24,7 +32,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useRef, useState,useEffect, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import { useRef, useState,useEffect, type ReactNode, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import {
   RESUME_LIMIT,
@@ -47,54 +55,23 @@ const initialProfile: ProfileDetails = {
   summary: "",
 };
 
-const trajectory = [
-  {
-    role: "Senior Software Engineer",
-    company: "Northstar Systems",
-    dates: "2022 — Present",
-    achievements: [
-      "Led a service reliability initiative across a distributed platform.",
-      "Improved deployment confidence through automated release checks.",
-    ],
-  },
-  {
-    role: "Software Engineer",
-    company: "Fieldwork Labs",
-    dates: "2019 — 2022",
-    achievements: [
-      "Built customer-facing product workflows with a cross-functional team.",
-    ],
-  },
-];
-
-const skills = [
-  { category: "Programming languages", values: ["TypeScript", "Python", "SQL", "Go"] },
-  { category: "Frameworks", values: ["React", "Node.js", "FastAPI"] },
-  { category: "Databases", values: ["PostgreSQL", "Redis", "MongoDB"] },
-  { category: "Cloud & infrastructure", values: ["AWS", "Docker", "Kubernetes", "CI/CD"] },
-  { category: "Systems & architecture", values: ["Distributed systems", "Observability"] },
-];
-
-const projects = [
-  {
-    name: "Distributed Systems Toolkit",
-    description:
-      "A set of practical patterns and observability tools for resilient services.",
-    technologies: ["Go", "PostgreSQL", "Docker"],
-    contribution: "Technical lead · architecture and core services",
-    githubUrl: "https://github.com/topics/distributed-systems",
-    verification: "Illustrative example · not verified",
-  },
-  {
-    name: "Open Data Explorer",
-    description:
-      "A data exploration interface designed for clear, reproducible analysis.",
-    technologies: ["TypeScript", "React", "Python"],
-    contribution: "Contributor · product engineering",
-    githubUrl: "https://github.com/topics/open-data",
-    verification: "Illustrative example · not verified",
-  },
-];
+// Editable overview values: user customizations win, then AI-extracted data.
+function buildProfileDetails(
+  profile: CandidateProfile,
+  customizations?: Partial<ProfileDetails> | null,
+): ProfileDetails {
+  return {
+    headline:
+      customizations?.headline ||
+      profile.headline ||
+      profile.work_experience[0]?.role ||
+      "",
+    location:
+      customizations?.location || profile.personal_information.location || "",
+    summary:
+      customizations?.summary || profile.professional_summary || "",
+  };
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) {
@@ -387,13 +364,23 @@ function ProfileOverview({
   name,
   email,
   details,
+  profile,
   onSave,
 }: {
   name: string;
   email: string;
   details: ProfileDetails;
+  profile: CandidateProfile | null;
   onSave: (details: ProfileDetails) => void;
 }) {
+  const pi = profile?.personal_information;
+  const displayName = pi?.full_name || name;
+  const displayEmail = pi?.email || email;
+  const contactLinks = [
+    { icon: <Linkedin size={13} />, label: "LinkedIn", href: pi?.linkedin_url },
+    { icon: <Github size={13} />, label: "GitHub", href: pi?.github_url },
+    { icon: <Globe size={13} />, label: "Portfolio", href: pi?.portfolio_url },
+  ].filter((l) => Boolean(l.href));
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(details);
 
@@ -482,14 +469,42 @@ function ProfileOverview({
         <div className="pr-profile-body">
           <div className="pr-profile-identity">
             <span className="pr-avatar" aria-hidden="true">
-              {getInitials(name)}
+              {getInitials(displayName)}
             </span>
             <div className="pr-profile-name">
-              <h3>{name}</h3>
+              <h3>{displayName}</h3>
               <p>{details.headline || "Add a professional headline"}</p>
-              <span>{email}</span>
+              <span>{displayEmail}</span>
             </div>
           </div>
+          {(pi?.phone || contactLinks.length > 0) && (
+            <div className="pr-contact-row">
+              {displayEmail && (
+                <span className="pr-contact-item">
+                  <Mail size={13} />
+                  {displayEmail}
+                </span>
+              )}
+              {pi?.phone && (
+                <span className="pr-contact-item">
+                  <Phone size={13} />
+                  {pi.phone}
+                </span>
+              )}
+              {contactLinks.map((link) => (
+                <a
+                  key={link.label}
+                  className="pr-contact-item pr-contact-link"
+                  href={link.href as string}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {link.icon}
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          )}
           <p className="pr-profile-summary">
             {details.summary || "Add a short summary to introduce your experience and strengths."}
           </p>
@@ -503,8 +518,22 @@ function ProfileOverview({
   );
 }
 
-function EmptyIntelligence({ hasResumes }: { hasResumes: boolean }) {
-  if (hasResumes) return null;
+function EmptyIntelligence({
+  hasResumes,
+  hasProfile,
+  label,
+}: {
+  hasResumes: boolean;
+  hasProfile: boolean;
+  label?: string;
+}) {
+  if (hasProfile) {
+    return (
+      <p className="pr-section-empty">
+        {label ?? "Nothing was found in your resumes for this section."}
+      </p>
+    );
+  }
 
   return (
     <div className="pr-intelligence-empty">
@@ -513,75 +542,184 @@ function EmptyIntelligence({ hasResumes }: { hasResumes: boolean }) {
       </span>
       <div>
         <strong>Your career intelligence is waiting.</strong>
-        <p>Upload a resume to start organizing your experience, skills, and signals.</p>
+        <p>
+          {hasResumes
+            ? "Generate your profile to see your experience, skills and projects here."
+            : "Upload a resume to start organizing your experience, skills, and signals."}
+        </p>
       </div>
     </div>
   );
 }
 
-function CareerTrajectory({ hasResumes }: { hasResumes: boolean }) {
+type ProfileSectionProps = {
+  profile: CandidateProfile | null;
+  hasResumes: boolean;
+};
+
+function IntelCard({
+  id,
+  eyebrow,
+  title,
+  icon,
+  count,
+  children,
+}: {
+  id: string;
+  eyebrow: string;
+  title: string;
+  icon: ReactNode;
+  count?: number;
+  children: ReactNode;
+}) {
   return (
-    <section className="pr-intel-card" aria-labelledby="pr-trajectory-heading">
+    <section className="pr-intel-card" aria-labelledby={id}>
       <div className="pr-intel-card-heading">
         <span className="pr-card-icon" aria-hidden="true">
-          <BriefcaseBusiness size={16} />
+          {icon}
         </span>
         <div>
-          <p className="pr-eyebrow">EXPERIENCE</p>
-          <h3 id="pr-trajectory-heading">Career trajectory</h3>
+          <p className="pr-eyebrow">{eyebrow}</p>
+          <h3 id={id}>{title}</h3>
         </div>
-        {hasResumes && <span className="pr-illustrative-label">Illustrative</span>}
+        {typeof count === "number" && count > 0 && (
+          <span className="pr-count-pill">{count}</span>
+        )}
       </div>
-      {hasResumes ? (
-        <div className="pr-timeline">
-          {trajectory.map((item, index) => (
-            <article className="pr-timeline-item" key={item.role}>
-              <span className="pr-timeline-marker" aria-hidden="true">
-                {index === 0 ? <BadgeCheck size={13} /> : <span />}
-              </span>
-              <div className="pr-timeline-copy">
-                <div className="pr-timeline-title">
-                  <h4>{item.role}</h4>
-                  <span>{item.dates}</span>
-                </div>
-                <p className="pr-company">{item.company}</p>
-                <ul>
-                  {item.achievements.map((achievement) => (
-                    <li key={achievement}>{achievement}</li>
-                  ))}
-                </ul>
-                <span className="pr-source-reference">Example source · resume experience entry</span>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <EmptyIntelligence hasResumes={hasResumes} />
-      )}
+      {children}
     </section>
   );
 }
 
-function TechnicalSkills({ hasResumes }: { hasResumes: boolean }) {
+function formatDateRange(
+  start?: string | null,
+  end?: string | null,
+  isCurrent?: boolean | null,
+): string {
+  const to = isCurrent ? "Present" : end;
+  if (start && to) return `${start} — ${to}`;
+  return start || to || "";
+}
+
+function CareerTrajectory({ profile, hasResumes }: ProfileSectionProps) {
+  const items = profile?.work_experience ?? [];
+
   return (
-    <section className="pr-intel-card" aria-labelledby="pr-skills-heading">
-      <div className="pr-intel-card-heading">
-        <span className="pr-card-icon" aria-hidden="true">
-          <Sparkles size={16} />
-        </span>
-        <div>
-          <p className="pr-eyebrow">CAPABILITIES</p>
-          <h3 id="pr-skills-heading">Technical skills & expertise</h3>
+    <IntelCard
+      id="pr-trajectory-heading"
+      eyebrow="EXPERIENCE"
+      title="Career trajectory"
+      icon={<BriefcaseBusiness size={16} />}
+      count={items.length}
+    >
+      {items.length > 0 ? (
+        <div className="pr-timeline">
+          {items.map((item, index) => {
+            const meta = [item.employment_type, item.location]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <article
+                className="pr-timeline-item"
+                key={`${item.company}-${item.role}-${index}`}
+              >
+                <span className="pr-timeline-marker" aria-hidden="true">
+                  {index === 0 ? <BadgeCheck size={13} /> : <span />}
+                </span>
+                <div className="pr-timeline-copy">
+                  <div className="pr-timeline-title">
+                    <h4>{item.role || "Role not specified"}</h4>
+                    <span>
+                      {formatDateRange(
+                        item.start_date,
+                        item.end_date,
+                        item.is_current,
+                      )}
+                    </span>
+                  </div>
+                  <p className="pr-company">
+                    {item.company || "Company not specified"}
+                    {meta && <span className="pr-meta"> · {meta}</span>}
+                  </p>
+                  {item.responsibilities.length > 0 && (
+                    <>
+                      <span className="pr-list-label">Responsibilities</span>
+                      <ul>
+                        {item.responsibilities.map((text, i) => (
+                          <li key={i}>{text}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {item.achievements.length > 0 && (
+                    <>
+                      <span className="pr-list-label">Achievements</span>
+                      <ul>
+                        {item.achievements.map((text, i) => (
+                          <li key={i}>{text}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {item.technologies.length > 0 && (
+                    <div className="pr-skill-tags">
+                      {item.technologies.map((tech) => (
+                        <span key={tech}>{tech}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
-        {hasResumes && <span className="pr-illustrative-label">Illustrative</span>}
-      </div>
-      {hasResumes ? (
+      ) : (
+        <EmptyIntelligence
+          hasResumes={hasResumes}
+          hasProfile={Boolean(profile)}
+          label="No work experience was found in your resumes."
+        />
+      )}
+    </IntelCard>
+  );
+}
+
+const SKILL_GROUPS: Array<{
+  key: keyof CandidateProfile["technical_skills"];
+  label: string;
+}> = [
+  { key: "programming_languages", label: "Programming languages" },
+  { key: "frameworks", label: "Frameworks & libraries" },
+  { key: "databases", label: "Databases" },
+  { key: "cloud_platforms", label: "Cloud platforms" },
+  { key: "tools", label: "Tools" },
+  { key: "other_skills", label: "Other skills" },
+];
+
+function TechnicalSkills({ profile, hasResumes }: ProfileSectionProps) {
+  const groups = profile
+    ? SKILL_GROUPS.filter((g) => profile.technical_skills[g.key].length > 0)
+    : [];
+  const total = groups.reduce(
+    (sum, g) => sum + (profile?.technical_skills[g.key].length ?? 0),
+    0,
+  );
+
+  return (
+    <IntelCard
+      id="pr-skills-heading"
+      eyebrow="CAPABILITIES"
+      title="Technical skills & expertise"
+      icon={<Sparkles size={16} />}
+      count={total}
+    >
+      {groups.length > 0 && profile ? (
         <div className="pr-skill-groups">
-          {skills.map((group) => (
-            <div className="pr-skill-group" key={group.category}>
-              <span>{group.category}</span>
+          {groups.map((group) => (
+            <div className="pr-skill-group" key={group.key}>
+              <span>{group.label}</span>
               <div className="pr-skill-tags">
-                {group.values.map((skill) => (
+                {profile.technical_skills[group.key].map((skill) => (
                   <span key={skill}>{skill}</span>
                 ))}
               </div>
@@ -589,59 +727,195 @@ function TechnicalSkills({ hasResumes }: { hasResumes: boolean }) {
           ))}
         </div>
       ) : (
-        <EmptyIntelligence hasResumes={hasResumes} />
+        <EmptyIntelligence
+          hasResumes={hasResumes}
+          hasProfile={Boolean(profile)}
+          label="No technical skills were found in your resumes."
+        />
       )}
-    </section>
+    </IntelCard>
   );
 }
 
-function ProjectArtifacts({ hasResumes }: { hasResumes: boolean }) {
+function ProjectArtifacts({ profile, hasResumes }: ProfileSectionProps) {
+  const items = profile?.projects ?? [];
+
   return (
-    <section className="pr-intel-card" aria-labelledby="pr-projects-heading">
-      <div className="pr-intel-card-heading">
-        <span className="pr-card-icon" aria-hidden="true">
-          <FileText size={16} />
-        </span>
-        <div>
-          <p className="pr-eyebrow">PROOF OF WORK</p>
-          <h3 id="pr-projects-heading">Projects & engineering artifacts</h3>
-        </div>
-        {hasResumes && <span className="pr-illustrative-label">Illustrative</span>}
-      </div>
-      {hasResumes ? (
-        <div className="pr-project-list">
-          {projects.map((project) => (
-            <article className="pr-project" key={project.name}>
+    <IntelCard
+      id="pr-projects-heading"
+      eyebrow="PROOF OF WORK"
+      title="Projects & engineering artifacts"
+      icon={<FileText size={16} />}
+      count={items.length}
+    >
+      {items.length > 0 ? (
+        <div className="pr-project-list pr-scroll-list" tabIndex={0}>
+          {items.map((project, index) => (
+            <article className="pr-project" key={`${project.name}-${index}`}>
               <div className="pr-project-title">
-                <h4>{project.name}</h4>
-                <a
-                  href={project.githubUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`Explore ${project.name} topics on GitHub`}
-                >
-                  GitHub <ArrowUpRight size={13} />
-                </a>
+                <h4>{project.name || "Untitled project"}</h4>
+                {project.project_url && (
+                  <a
+                    href={project.project_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open ${project.name || "project"}`}
+                  >
+                    View <ArrowUpRight size={13} />
+                  </a>
+                )}
               </div>
-              <p>{project.description}</p>
-              <div className="pr-skill-tags">
-                {project.technologies.map((technology) => (
-                  <span key={technology}>{technology}</span>
-                ))}
-              </div>
-              <span className="pr-project-contribution">{project.contribution}</span>
-              <span className="pr-project-verification">{project.verification}</span>
+              {project.description && <p>{project.description}</p>}
+              {project.contributions.length > 0 && (
+                <ul className="pr-project-points">
+                  {project.contributions.map((text, i) => (
+                    <li key={i}>{text}</li>
+                  ))}
+                </ul>
+              )}
+              {project.technologies.length > 0 && (
+                <div className="pr-skill-tags">
+                  {project.technologies.map((tech) => (
+                    <span key={tech}>{tech}</span>
+                  ))}
+                </div>
+              )}
             </article>
           ))}
         </div>
       ) : (
-        <EmptyIntelligence hasResumes={hasResumes} />
+        <EmptyIntelligence
+          hasResumes={hasResumes}
+          hasProfile={Boolean(profile)}
+          label="No projects were found in your resumes."
+        />
       )}
-    </section>
+    </IntelCard>
   );
 }
 
-function ProfileIntegrity({ hasResumes }: { hasResumes: boolean }) {
+function EducationSection({ profile, hasResumes }: ProfileSectionProps) {
+  const items = profile?.education ?? [];
+
+  return (
+    <IntelCard
+      id="pr-education-heading"
+      eyebrow="BACKGROUND"
+      title="Education"
+      icon={<GraduationCap size={16} />}
+      count={items.length}
+    >
+      {items.length > 0 ? (
+        <div className="pr-entry-list">
+          {items.map((edu, index) => (
+            <article className="pr-entry" key={`${edu.institution}-${index}`}>
+              <div className="pr-timeline-title">
+                <h4>{edu.institution || "Institution not specified"}</h4>
+                {edu.graduation_year && <span>{edu.graduation_year}</span>}
+              </div>
+              <p className="pr-company">
+                {[edu.degree, edu.field_of_study].filter(Boolean).join(" · ") ||
+                  "Degree not specified"}
+              </p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyIntelligence
+          hasResumes={hasResumes}
+          hasProfile={Boolean(profile)}
+          label="No education details were found in your resumes."
+        />
+      )}
+    </IntelCard>
+  );
+}
+
+function CredentialsSection({ profile, hasResumes }: ProfileSectionProps) {
+  const certs = profile?.certifications ?? [];
+  const achievements = profile?.achievements ?? [];
+  const total = certs.length + achievements.length;
+
+  return (
+    <IntelCard
+      id="pr-credentials-heading"
+      eyebrow="RECOGNITION"
+      title="Certifications & achievements"
+      icon={<Award size={16} />}
+      count={total}
+    >
+      {total > 0 ? (
+        <div className="pr-entry-list">
+          {certs.map((cert, index) => (
+            <article className="pr-entry" key={`cert-${cert.name}-${index}`}>
+              <div className="pr-timeline-title">
+                <h4>{cert.name || "Certification"}</h4>
+                {cert.issue_date && <span>{cert.issue_date}</span>}
+              </div>
+              <p className="pr-company">
+                {cert.issuer || "Certification"}
+                {cert.credential_url && (
+                  <>
+                    {" · "}
+                    <a href={cert.credential_url} target="_blank" rel="noreferrer">
+                      Credential
+                    </a>
+                  </>
+                )}
+              </p>
+            </article>
+          ))}
+          {achievements.map((item, index) => (
+            <article className="pr-entry" key={`ach-${item.title}-${index}`}>
+              <div className="pr-timeline-title">
+                <h4>{item.title || "Achievement"}</h4>
+                {item.date && <span>{item.date}</span>}
+              </div>
+              {item.description && <p className="pr-entry-text">{item.description}</p>}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyIntelligence
+          hasResumes={hasResumes}
+          hasProfile={Boolean(profile)}
+          label="No certifications or achievements were found in your resumes."
+        />
+      )}
+    </IntelCard>
+  );
+}
+
+// Real completeness checks computed from the generated profile.
+function getProfileChecks(profile: CandidateProfile) {
+  const pi = profile.personal_information;
+  const ts = profile.technical_skills;
+  const skillCount = SKILL_GROUPS.reduce((n, g) => n + ts[g.key].length, 0);
+
+  return [
+    { label: "Full name", ok: Boolean(pi.full_name) },
+    { label: "Email", ok: Boolean(pi.email) },
+    { label: "Phone", ok: Boolean(pi.phone) },
+    { label: "Location", ok: Boolean(pi.location) },
+    {
+      label: "Professional links",
+      ok: Boolean(pi.linkedin_url || pi.github_url || pi.portfolio_url),
+    },
+    { label: "Professional summary", ok: Boolean(profile.professional_summary) },
+    { label: "Technical skills", ok: skillCount > 0 },
+    { label: "Work experience", ok: profile.work_experience.length > 0 },
+    { label: "Projects", ok: profile.projects.length > 0 },
+    { label: "Education", ok: profile.education.length > 0 },
+  ];
+}
+
+function ProfileIntegrity({ profile, hasResumes }: ProfileSectionProps) {
+  const checks = profile ? getProfileChecks(profile) : [];
+  const missing = checks.filter((c) => !c.ok);
+  const score = checks.length
+    ? Math.round(((checks.length - missing.length) / checks.length) * 100)
+    : 0;
+
   return (
     <section
       className="pr-intel-card"
@@ -654,41 +928,106 @@ function ProfileIntegrity({ hasResumes }: { hasResumes: boolean }) {
         </span>
         <div>
           <p className="pr-eyebrow">QUALITY CHECKS</p>
-          <h3 id="pr-integrity-heading">Profile integrity</h3>
+          <h3 id="pr-integrity-heading">Profile completeness</h3>
         </div>
+        {profile && <span className="pr-count-pill">{score}%</span>}
       </div>
-      {hasResumes ? (
+      {profile ? (
         <div className="pr-integrity-list">
-          <div className="pr-integrity-row">
-            <span className="pr-integrity-indicator is-positive">
-              <Check size={12} />
-            </span>
-            <span>Resume consistency</span>
-            <strong>Aligned</strong>
-          </div>
-          <div className="pr-integrity-row">
-            <span className="pr-integrity-indicator is-neutral">
-              <CircleAlert size={12} />
-            </span>
-            <span>Missing information</span>
-            <strong>2 items to review</strong>
-          </div>
-          <div className="pr-integrity-row">
-            <span className="pr-integrity-indicator is-positive">
-              <Check size={12} />
-            </span>
-            <span>Chronology conflicts</span>
-            <strong>None detected</strong>
-          </div>
+          {checks.map((check) => (
+            <div className="pr-integrity-row" key={check.label}>
+              <span
+                className={`pr-integrity-indicator ${
+                  check.ok ? "is-positive" : "is-neutral"
+                }`}
+              >
+                {check.ok ? <Check size={12} /> : <CircleAlert size={12} />}
+              </span>
+              <span>{check.label}</span>
+              <strong>{check.ok ? "Found" : "Missing"}</strong>
+            </div>
+          ))}
           <p className="pr-integrity-footnote">
             <ShieldCheck size={13} />
-            Example verification state — not a validation of your documents.
+            {missing.length === 0
+              ? "Everything we look for was found in your resumes."
+              : "Add the missing details to your resume and regenerate to fill these in."}
           </p>
         </div>
       ) : (
-        <EmptyIntelligence hasResumes={hasResumes} />
+        <EmptyIntelligence hasResumes={hasResumes} hasProfile={false} />
       )}
     </section>
+  );
+}
+
+const GENERATION_STAGES = [
+  { from: 0, label: "Verifying your resumes" },
+  { from: 12, label: "Reading resume content" },
+  { from: 28, label: "Analyzing experience, skills and projects" },
+  { from: 70, label: "Structuring your profile" },
+  { from: 90, label: "Saving your profile" },
+];
+
+// Generation runs as one server request with no progress feed, so the
+// percentage is an estimate: it eases toward 95% and hits 100% on completion.
+function GenerationProgressModal({
+  isOpen,
+  isDone,
+}: {
+  isOpen: boolean;
+  isDone: boolean;
+}) {
+  const [percent, setPercent] = useState(0);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPercent(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      const seconds = (Date.now() - startedAt) / 1000;
+      setPercent(Math.min(95, Math.round(95 * (1 - Math.exp(-seconds / 35)))));
+    }, 300);
+    return () => window.clearInterval(timer);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const shown = isDone ? 100 : percent;
+  const stage = isDone
+    ? "Profile ready"
+    : [...GENERATION_STAGES].reverse().find((s) => shown >= s.from)!.label;
+
+  return (
+    <div className="pr-modal-backdrop" role="presentation">
+      <div
+        className="pr-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pr-gen-title"
+      >
+        <span className="pr-synthesis-icon" aria-hidden="true">
+          <Sparkles size={18} />
+        </span>
+        <h3 id="pr-gen-title">Generating your profile</h3>
+        <p className="pr-modal-stage" aria-live="polite">{stage}…</p>
+        <div
+          className="pr-progress-track"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={shown}
+        >
+          <div className="pr-progress-fill" style={{ width: `${shown}%` }} />
+        </div>
+        <strong className="pr-progress-percent">{shown}%</strong>
+        <p className="pr-modal-note">
+          This can take a minute or two. Please keep this tab open.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -705,6 +1044,22 @@ function SynthesisStatus({
   isGenerating: boolean;
   onGenerate: () => void;
 }) {
+  const checks = candidateProfile ? getProfileChecks(candidateProfile) : [];
+  const completeness = checks.length
+    ? Math.round((checks.filter((c) => c.ok).length / checks.length) * 100)
+    : 0;
+  const signalCount = candidateProfile
+    ? SKILL_GROUPS.reduce(
+        (n, g) => n + candidateProfile.technical_skills[g.key].length,
+        0,
+      ) +
+      candidateProfile.work_experience.length +
+      candidateProfile.projects.length +
+      candidateProfile.education.length +
+      candidateProfile.certifications.length +
+      candidateProfile.achievements.length
+    : 0;
+
   return (
     <section className="pr-synthesis-card" aria-labelledby="pr-synthesis-heading">
       <div className="pr-synthesis-copy">
@@ -714,30 +1069,38 @@ function SynthesisStatus({
         <div>
           <p className="pr-eyebrow">NORTH SYNTHESIS</p>
           <h3 id="pr-synthesis-heading">
-            {hasResumes ? "Your files are ready for synthesis" : "Your profile is ready to begin"}
+            {candidateProfile
+              ? "Your profile is built from your resumes"
+              : hasResumes
+                ? "Your files are ready for synthesis"
+                : "Your profile is ready to begin"}
           </h3>
           <p>
-            {hasResumes
-              ? "Selected files remain on this device. Career signals appear once secure processing is connected."
-              : "Add a resume to begin building a clear, consolidated career record."}
+            {candidateProfile
+              ? "Regenerate after adding or changing a resume to refresh your profile."
+              : hasResumes
+                ? "Generate your profile to consolidate your resumes into one structured career record."
+                : "Add a resume to begin building a clear, consolidated career record."}
           </p>
         </div>
       </div>
       <div className="pr-synthesis-metrics">
         <div>
           <strong>{resumeCount}</strong>
-          <span>FILES SELECTED</span>
+          <span>RESUMES</span>
         </div>
         <div>
-          <strong>—</strong>
-          <span>VERIFIED SIGNALS</span>
+          <strong>{candidateProfile ? signalCount : "—"}</strong>
+          <span>PROFILE SIGNALS</span>
         </div>
         <div>
-          <strong>—</strong>
-          <span>CHRONOLOGY CONFLICTS</span>
+          <strong>{candidateProfile ? `${completeness}%` : "—"}</strong>
+          <span>COMPLETENESS</span>
         </div>
         <div className="pr-synthesis-processing">
-          <strong>Not processed</strong>
+          <strong>
+            {isGenerating ? "Processing" : candidateProfile ? "Generated" : "Not generated"}
+          </strong>
           <span>PROCESSING STATUS</span>
         </div>
       </div>
@@ -773,10 +1136,13 @@ const {
 } = useResumeLibrary();
 
 
+const { markProfileGenerated } = useCandidateProfileStatus();
+
 const [candidateProfile, setCandidateProfile] =
   useState<CandidateProfile | null>(null);
 
 const [isGenerating, setIsGenerating] = useState(false);
+const [generationDone, setGenerationDone] = useState(false);
 const [profileError, setProfileError] = useState<string | null>(null);
 const [isProfileLoading, setIsProfileLoading] = useState(true);
 
@@ -793,20 +1159,7 @@ useEffect(() => {
 
   setCandidateProfile(aiProfile);
 
-  setProfileDetails({
-    headline:
-      customizations?.headline ||
-      aiProfile.work_experience?.[0]?.role ||
-      "",
-    location:
-      customizations?.location ||
-      aiProfile.personal_information?.location ||
-      "",
-    summary:
-      customizations?.summary ||
-      aiProfile.professional_summary ||
-      "",
-  });
+  setProfileDetails(buildProfileDetails(aiProfile, customizations));
 }
     } catch (error) {
       console.error("Failed to load candidate profile:", error);
@@ -833,17 +1186,18 @@ useEffect(() => {
 
     try {
       setIsGenerating(true);
+      setGenerationDone(false);
       setProfileError(null);
 
       const profile = await generateCandidateProfile();
 
 setCandidateProfile(profile);
+markProfileGenerated();
 
-setProfileDetails({
-  headline: profile.work_experience?.[0]?.role || "",
-  location: profile.personal_information?.location || "",
-  summary: profile.professional_summary || "",
-});
+setProfileDetails(buildProfileDetails(profile, null));
+
+      setGenerationDone(true);
+      await new Promise((resolve) => setTimeout(resolve, 700));
     } catch (error: any) {
       console.error("Profile generation failed:", error);
 
@@ -859,6 +1213,7 @@ setProfileDetails({
       }
     } finally {
       setIsGenerating(false);
+      setGenerationDone(false);
     }
 };
 
@@ -955,7 +1310,13 @@ setProfileDetails({
             </div>
 
             <span className="pr-illustrative-note">
-              {hasResumes ? "Illustrative example" : "Ready when you are"}
+              {isProfileLoading
+                ? "Loading your profile…"
+                : candidateProfile
+                  ? "Generated from your resumes"
+                  : hasResumes
+                    ? "Ready to generate"
+                    : "Ready when you are"}
             </span>
           </div>
 
@@ -963,22 +1324,27 @@ setProfileDetails({
             name={user.name}
             email={user.email}
             details={profileDetails}
-            onSave={setProfileDetails}
+            profile={candidateProfile}
+            onSave={handleSaveProfile}
           />
 
-          {hasResumes && (
-            <p className="pr-demo-disclaimer">
-              Example career data for interface preview only. Resume files
-              are not analyzed or sent to a server in this UI phase.
+          {profileError && (
+            <p className="pr-upload-error" role="alert">
+              <CircleAlert size={14} />
+              {profileError}
             </p>
           )}
 
           <div className="pr-intelligence-grid">
-            <CareerTrajectory hasResumes={hasResumes} />
-            <TechnicalSkills hasResumes={hasResumes} />
-            <ProjectArtifacts hasResumes={hasResumes} />
-            <ProfileIntegrity hasResumes={hasResumes} />
+            <CareerTrajectory profile={candidateProfile} hasResumes={hasResumes} />
+            <TechnicalSkills profile={candidateProfile} hasResumes={hasResumes} />
+            <ProjectArtifacts profile={candidateProfile} hasResumes={hasResumes} />
+            <EducationSection profile={candidateProfile} hasResumes={hasResumes} />
+            <CredentialsSection profile={candidateProfile} hasResumes={hasResumes} />
+            <ProfileIntegrity profile={candidateProfile} hasResumes={hasResumes} />
           </div>
+
+          <GenerationProgressModal isOpen={isGenerating} isDone={generationDone} />
 
           <SynthesisStatus
   resumeCount={totalResumeCount}

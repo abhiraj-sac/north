@@ -21,6 +21,9 @@ def get_llm() -> BaseChatModel:
             model=os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b"),
             base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
             temperature=0,
+            # Ollama's default context (2-4k tokens) silently truncates
+            # our long extraction prompt + multi-resume text.
+            num_ctx=int(os.getenv("OLLAMA_NUM_CTX", "16384")),
         )
 
     if provider == "nvidia":

@@ -6,8 +6,7 @@ import logging
 from dotenv import load_dotenv
 from ai.llm_factory import get_structured_llm
 from app.schemas.candidate import CandidateProfile
-# from app.schemas.candidate_profile import CandidateProfile
-from app.schemas.candidate import CandidateProfile
+from app.services.project_fallback import merge_projects
 
 
 # ---------- CONFIGURATION ----------
@@ -95,8 +94,14 @@ Extract:
 Do not infer missing contact information.
 
 ==================================================
-3. PROFESSIONAL SUMMARY
+3. HEADLINE AND PROFESSIONAL SUMMARY
 ==================================================
+
+Headline: a short professional title (max 10 words) such as
+"Full-Stack Developer" or "Final-year CS Student". Use a title
+or objective stated in the resume; otherwise derive it from the
+candidate's most recent role/education. Return null if the
+resume gives no basis for one.
 
 Extract the candidate's professional summary if present.
 
@@ -401,6 +406,9 @@ def generate_candidate_profile(
 
         if not isinstance(result, CandidateProfile):
             result = CandidateProfile.model_validate(result)
+
+        # Safety net: recover projects the model skipped or left nameless.
+        result = merge_projects(result, raw_text)
 
         return result
 

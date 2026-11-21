@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { getResumeDownloadUrl } from "../services/resume-upload.service.js";
 import { createResumeUpload, completeResumeUpload } from "../services/resume-upload.service.js";
-import { deleteResume } from "../services/resume-upload.service.js";
+import { deleteResume, uploadResumeFile } from "../services/resume-upload.service.js";
 
 type AuthenticatedRequest = Request & {
   userId?: string;
@@ -197,6 +197,43 @@ export async function deleteResumeController(
       return res.status(404).json({
         message: "Resume not found",
       });
+    }
+
+    next(error);
+  }
+}
+
+export async function uploadResumeFileController(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const resumeId = String(req.params.resumeId);
+
+    if (!Buffer.isBuffer(req.body)) {
+      return res.status(400).json({ message: "Resume file is required" });
+    }
+
+    await uploadResumeFile(req.userId, resumeId, req.body);
+
+    return res.status(200).json({ message: "Resume file uploaded" });
+  } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "RESUME_NOT_FOUND":
+          return res.status(404).json({ message: "Resume upload not found" });
+        case "UPLOAD_EXPIRED":
+          return res.status(410).json({ message: "Upload expired. Please try again." });
+        case "INVALID_FILE_SIZE":
+          return res.status(400).json({ message: "File size must be between 1 byte and 15 MB" });
+        case "INVALID_FILE_CONTENT":
+          return res.status(400).json({ message: "File content does not match its type" });
+      }
     }
 
     next(error);

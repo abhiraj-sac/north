@@ -5,6 +5,7 @@ import {
   ResumeLibraryProvider,
   useResumeLibrary,
 } from "./auth/ResumeLibraryContext";
+import { CandidateProfileProvider, useCandidateProfileStatus } from "./auth/CandidateProfileContext";
 import ResumeStudioPage from "./pages/ResumeStudioPage";
 import EngineeringPreview from "./components/EngineeringPreview";
 import FeatureStrip from "./components/FeatureStrip";
@@ -22,7 +23,9 @@ export default function App() {
   return (
     <AuthProvider>
       <ResumeLibraryProvider>
-        <AppRoutes />
+        <CandidateProfileProvider>
+          <AppRoutes />
+        </CandidateProfileProvider>
       </ResumeLibraryProvider>
     </AuthProvider>
   );
@@ -41,7 +44,9 @@ function AppRoutes() {
         <Route element={<WorkspaceShell />}>
           <Route index element={<Landing />} />
           <Route path="profile" element={<ProfileResumesPage />} />
-          <Route path="roles" element={<DiscoveredRolesPage />} />
+          <Route element={<RequireProfile />}>
+            <Route path="roles" element={<DiscoveredRolesPage />} />
+          </Route>
           <Route
   path="applications/new/:jobId"
   element={<ApplicationWorkspacePage />}
@@ -59,6 +64,21 @@ function AppRoutes() {
       <Route path="*" element={<UnknownRoute />} />
     </Routes>
   );
+}
+
+// Discovered roles unlock only after a candidate profile has been generated.
+function RequireProfile() {
+  const { hasProfile, isLoading } = useCandidateProfileStatus();
+
+  if (isLoading) {
+    return <SessionScreen message="Checking your profile..." loading />;
+  }
+
+  if (!hasProfile) {
+    return <Navigate to="/profile" replace />;
+  }
+
+  return <Outlet />;
 }
 
 function AuthShell() {

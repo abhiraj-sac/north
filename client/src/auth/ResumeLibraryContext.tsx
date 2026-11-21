@@ -126,7 +126,7 @@ export function ResumeLibraryProvider({
         ? "application/pdf"
         : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-      // 3. Request presigned URL from backend
+      // 3. Register the upload with the backend
       const initResponse = await api.post(
         "/api/resumes/upload-init",
         {
@@ -136,20 +136,12 @@ export function ResumeLibraryProvider({
         }
       );
 
-      const { resumeId, uploadUrl } = initResponse.data;
+      const { resumeId } = initResponse.data;
 
-      // 4. Upload actual file directly to S3
-      const s3Response = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": mimeType,
-        },
-        body: file,
+      // 4. Send the file to the backend, which stores it in S3
+      await api.put(`/api/resumes/${resumeId}/file`, file, {
+        headers: { "Content-Type": mimeType },
       });
-
-      if (!s3Response.ok) {
-        throw new Error("Failed to upload file to S3.");
-      }
 
       // 5. Ask backend to verify the uploaded file
       await api.post(

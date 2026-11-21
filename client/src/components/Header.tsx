@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useCandidateProfileStatus } from "../auth/CandidateProfileContext";
 import { RESUME_LIMIT, useResumeLibrary } from "../auth/ResumeLibraryContext";
 
 interface HeaderProps {
@@ -48,16 +49,20 @@ function getInitials(name: string): string {
 export default function Header({ onLogout, variant = "workspace" }: HeaderProps) {
   const { user } = useAuth();
   const { resumes } = useResumeLibrary();
+  const { hasProfile } = useCandidateProfileStatus();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchResults = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+    const available = hasProfile
+      ? searchItems
+      : searchItems.filter((item) => item.to !== "/roles");
     return query
-      ? searchItems.filter((item) => item.label.toLowerCase().includes(query))
-      : searchItems.slice(0, 5);
-  }, [searchTerm]);
+      ? available.filter((item) => item.label.toLowerCase().includes(query))
+      : available.slice(0, 5);
+  }, [searchTerm, hasProfile]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
@@ -105,7 +110,18 @@ export default function Header({ onLogout, variant = "workspace" }: HeaderProps)
       ) : (
         <>
           <nav className="header-nav" aria-label="Main navigation">
-            {navigationItems.map(({ label, to }) => (
+            {navigationItems.map(({ label, to }) =>
+              to === "/roles" && !hasProfile ? (
+                <span
+                  key={to}
+                  className="nav-disabled"
+                  role="link"
+                  aria-disabled="true"
+                  title="Generate your profile first to unlock discovered roles"
+                >
+                  {label}
+                </span>
+              ) : (
               <NavLink
                 key={to}
                 to={to}
@@ -114,7 +130,8 @@ export default function Header({ onLogout, variant = "workspace" }: HeaderProps)
               >
                 {label}
               </NavLink>
-            ))}
+              ),
+            )}
           </nav>
           <div className="header-actions">
             <button

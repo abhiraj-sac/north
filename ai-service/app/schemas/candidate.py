@@ -108,6 +108,8 @@ class CandidateProfile(BaseModel):
         default_factory=PersonalInformation
     )
 
+    headline: str | None = None
+
     professional_summary: str | None = None
 
     technical_skills: TechnicalSkills = Field(

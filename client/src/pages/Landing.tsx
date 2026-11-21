@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useCandidateProfileStatus } from "../auth/CandidateProfileContext";
 import SystemFooter from "../components/SystemFooter";
 
 const pipelineStages = [
@@ -20,6 +21,7 @@ const pipelineStages = [
 
 export default function Landing() {
   const { user } = useAuth();
+  const { hasProfile } = useCandidateProfileStatus();
 
   return (
     <section className="landing-content">
@@ -42,9 +44,20 @@ export default function Landing() {
               <Link className="hero-cta hero-cta-primary" to="/profile">
                 Explore your profile <ArrowRight size={14} strokeWidth={1.8} />
               </Link>
-              <Link className="hero-cta hero-cta-secondary" to="/roles">
-                Discover roles
-              </Link>
+              {hasProfile ? (
+                <Link className="hero-cta hero-cta-secondary" to="/roles">
+                  Discover roles
+                </Link>
+              ) : (
+                <span
+                  className="hero-cta hero-cta-secondary hero-cta-disabled"
+                  role="link"
+                  aria-disabled="true"
+                  title="Generate your profile first to unlock discovered roles"
+                >
+                  Discover roles
+                </span>
+              )}
             </div>
           </div>
 
