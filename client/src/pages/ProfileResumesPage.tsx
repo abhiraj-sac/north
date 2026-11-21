@@ -1150,6 +1150,8 @@ useEffect(() => {
   let isMounted = true;
 
   async function loadProfile() {
+    setCandidateProfile(null);
+    setProfileDetails(initialProfile);
     try {
       const profile = await getCandidateProfile();
 
@@ -1176,7 +1178,7 @@ useEffect(() => {
   return () => {
     isMounted = false;
   };
-}, []);
+}, [user?.id]);
 
   const handleGenerateProfile = async () => {
     if (resumes.length === 0) {

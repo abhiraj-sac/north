@@ -11,6 +11,7 @@ import {
 
 // IMPORTANT: Replace this with the actual relative path to your api.ts file.
 import { api } from "../lib/api";
+import { useAuth } from "./AuthContext";
 
 export const RESUME_LIMIT = 3;
 
@@ -66,6 +67,9 @@ export function ResumeLibraryProvider({
 }: {
   children: ReactNode;
 }) {
+  const { status, user } = useAuth();
+  const userId = user?.id;
+
   // Locally selected files.
   const [selectedFiles, setSelectedFiles] = useState<SelectedResume[]>([]);
 
@@ -293,10 +297,20 @@ export function ResumeLibraryProvider({
     setError(null);
   }, []);
 
-  // Load saved resumes when the provider mounts.
+  // Load saved resumes for the signed-in user, and drop everything
+  // (resumes, selected files) the moment the user changes or signs out so
+  // one account never sees another account's data.
   useEffect(() => {
-    void loadResumes();
-  }, [loadResumes]);
+    setResumes([]);
+    clearSelectedFiles();
+
+    if (status === "authenticated") {
+      void loadResumes();
+    } else {
+      setLoading(status === "loading");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, userId, loadResumes]);
 
   // Clean up temporary preview URLs when the provider unmounts.
   useEffect(() => {
